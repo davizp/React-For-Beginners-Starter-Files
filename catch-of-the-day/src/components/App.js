@@ -4,6 +4,7 @@ import Order from './Order';
 import Inventory from './Inventory';
 import Fish from './Fish';
 import sampleFishes from '../sample-fishes';
+import base from '../base';
 
 class App extends React.Component {
 	
@@ -12,13 +13,52 @@ class App extends React.Component {
 		super();
 
 		this.addFish = this.addFish.bind(this);
+		this.updateFish = this.updateFish.bind(this);
+		this.removeFish = this.removeFish.bind(this);
+		this.removeFromOrder = this.removeFromOrder.bind(this);
 		this.loadSamples = this.loadSamples.bind(this);
+		this.addToOrder = this.addToOrder.bind(this);
 		//getinitialstate
 		this.state = {
 			fishes: {},
 			order: {}
 		};
 	}
+
+	// special method of react
+	// https://facebook.github.io/react/docs/react-component.html#componentwillmount
+	componentWillMount() {
+		// this runs right before the <App> is rendered
+		this.ref = base.syncState(`${this.props.params.storeId}/fishes`,
+		{
+			context: this,
+			state: 'fishes'
+		});
+
+		// check if there is any order in localStorage
+		const localStorageRef = localStorage.getItem(`order-${this.props.params.storeId}`);
+
+		if(localStorageRef) {
+			this.setState({
+				order: JSON.parse(localStorageRef)
+			});
+		}
+	}
+
+	componentWillUnMount() {
+		base.removeBinding(this.ref);
+	}
+
+	componentWillUpdate(nextProps, nextState) {
+		console.log('something Changed', {nextProps ,nextState} );
+
+		localStorage
+			.setItem(
+				`order-${this.props.params.storeId}`,
+				JSON.stringify(nextState.order)
+			);
+	}
+
 
 	addFish(fish){
 		//update our state
@@ -31,10 +71,39 @@ class App extends React.Component {
 		this.setState({ fishes });
 	}
 
+	updateFish(key, updatedFish) {
+		const fishes = {...this.state.fishes};
+		fishes[key] = updatedFish;
+		this.setState({ fishes });
+	}
+
+	removeFish(key) {
+		const fishes = {...this.state.fishes};
+		fishes[key] = null;
+		this.setState({ fishes });
+	}
+
+	removeFromOrder(key) {
+		const order = {...this.state.order};
+		delete order[key];
+		this.setState({ order });
+
+	}
+
+
 	loadSamples() {
 		this.setState({
 			fishes: sampleFishes
 		});
+	}
+
+	addToOrder(key) {
+		// take a copy of our state
+		const order = {...this.state.order};
+		// update or add the new number of fish
+		order[key] = order[key] + 1 || 1;
+		//update our state
+		this.setState({ order });
 	}
 
 	render() {
@@ -46,12 +115,18 @@ class App extends React.Component {
 						{
 							Object
 								.keys(this.state.fishes)
-								.map(key => <Fish key={key} details={this.state.fishes[key]} />)
+								.map(key => <Fish key={key} index={key} details={this.state.fishes[key]} addToOrder={this.addToOrder} />)
 						}
 					</ul>
 				</div>
-				<Order />
-				<Inventory addFish={this.addFish} loadSamples={this.loadSamples} />
+				<Order fishes={this.state.fishes} order={this.state.order} params={this.props.params} removeFromOrder={this.removeFromOrder} />
+				<Inventory
+					addFish={this.addFish}
+					updateFish={this.updateFish}
+					removeFish={this.removeFish}
+					loadSamples={this.loadSamples}
+					fishes={this.state.fishes}
+				/>
 			</div>
 		)
 	}
